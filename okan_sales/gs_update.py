@@ -10,7 +10,7 @@ import time
 import pandas as pd
 import os
 import re
-from config import *
+import config
 
 
 class GSWorksheet:
@@ -27,7 +27,7 @@ class GSWorksheet:
     def recursion_open_by_key(self):
         gs = self.gs
         try:
-            gsh_ok_sales = gs.open_by_key(SPREADSHEET_KEY)
+            gsh_ok_sales = gs.open_by_key(config.SPREADSHEET_KEY)
             return gsh_ok_sales
         except requests.exceptions.SSLError:
             time.sleep(5)
@@ -446,11 +446,11 @@ def normilise_time(time):
 def backup_():
     # creating csv 'backup' with actual data
     df_backup = pd.DataFrame(list_of_lists)
-    backup_name = BACKUP_WAY + datetime.datetime.now().strftime("%d-%m-%Y-%H-%M") \
+    backup_name = config.BACKUP_WAY + datetime.datetime.now().strftime("%d-%m-%Y-%H-%M") \
                   + '.csv'
     df_backup.to_csv(backup_name, index=False, header=False, sep=';', encoding='UTF-8') \
         # removing old data backup
-    backup_list = os.listdir(BACKUP_WAY)
+    backup_list = os.listdir(config.BACKUP_WAY)
     data_backup = datetime.datetime.now() - datetime.timedelta(days=7)
     # data_backup = data_backup.strftime("%d-%m-%Y-%H-%M")
     for i in range(0, len(backup_list)):
@@ -458,7 +458,7 @@ def backup_():
         compare_date = compare_string[4].split('.')
         compare_date = datetime.datetime.strptime(compare_date[0], "%d-%m-%Y-%H-%M")
         if compare_date < data_backup:
-            backup_remove_name = BACKUP_WAY + backup_list[i]
+            backup_remove_name = config.BACKUP_WAY + backup_list[i]
             os.remove(backup_remove_name)
 
 
@@ -573,7 +573,7 @@ def sort_gs_table(list_of_lists):
 
 if __name__ == '__main__':
     local_now_time = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
-    gs_worksheet = GSWorksheet(SPREADSHEET_URL, GOOGLE_ENGINE_TOKEN_WAY)
+    gs_worksheet = GSWorksheet(config.SPREADSHEET_URL, config.GOOGLE_ENGINE_TOKEN_WAY)
     worksheet = gs_worksheet.worksheet
     list_of_lists = worksheet.get_all_values()
     list_for_gs_update = sort_gs_table(list_of_lists)
