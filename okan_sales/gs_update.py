@@ -10,6 +10,7 @@ import time
 import pandas as pd
 import os
 import re
+import urllib.parse
 import config
 
 
@@ -20,6 +21,10 @@ class GSWorksheet:
             gs = gspread.authorize(credentials)
             return gs
         except TimeoutError:
+            time.sleep(5)
+            gs = self.recursion_auth()
+            return gs
+        except requests.exceptions.ConnectionError:
             time.sleep(5)
             gs = self.recursion_auth()
             return gs
@@ -99,10 +104,12 @@ def get_lot_table_with_urls(order_url, okan_id):
     # assert(page.status_code == 200)
     # assert(page.status_code == 404)
     page.raise_for_status()
+    local_now_time = datetime.datetime.now()
     soup = BeautifulSoup(page.content, 'lxml')
     if "fabrikant" in order_url:
         number_of_lot = get_number_of_lot(okan_id)
         lot_div = soup.find_all("table", {'class': 'blank'})
+        # ggg = soup.find_all("table", {'class': 'round_blocks'})
         lot_table_list = []
         for i in range(number_of_lot[0], number_of_lot[1] + 1):
             lot_table_list_col = lot_div[i].findAll('tr')
@@ -113,14 +120,42 @@ def get_lot_table_with_urls(order_url, okan_id):
                     content = col.getText().strip('\n\t')
                     lot_table_list_col.append(content)
                 lot_table_list.append(lot_table_list_col)
-        return lot_table_list
+
+        file_url_table = soup.findAll("table", {'class': 'round_blocks'})
+        links = file_url_table[0].findAll('a')
+        url_table_with_docs = order_url.split('?')[0] + '?' + links[0]['href'].split('?')[1]
+        page_docs = recursion_request(url_table_with_docs)
+        soup_docs = BeautifulSoup(page_docs.content.decode('windows-1251'), 'lxml')
+        rows = soup_docs.findAll("table",  {'class': 'list document_list'})[0].find('tbody').find_all('tr')
+        file_table = []
+        k = 0
+        for row in rows:
+            cols = row.findAll('td')
+            files_table_cols = []
+            for col in cols:
+                content = col.getText().strip('\n\t')
+                if 'файл' in content:
+                    href = col.contents[1]['href']
+                    files_table_cols.append(href)
+                else:
+                    files_table_cols.append(content)
+            file_table.append(files_table_cols)
+            x = datetime.datetime.strptime(file_table[k][3], "%d.%m.%Y %H:%M:%S")
+            # local_now_time = datetime.datetime.strptime('2017-03-27', "%Y-%m-%d")
+            new_file = ''
+            if x.date() == local_now_time.date():
+
+                new_filename = download_file(file_table[k][1], okan_id)
+                new_file = new_filename + ' от ' + str(local_now_time.date())
+            k += 1
+        return lot_table_list, new_file
     elif 'rosatom' in order_url:
         url = 'http://zakupki.rosatom.ru'
         lot_div = soup.find("div", {"class": "table-lots-list",
                                        "id": "table_07"})
         try:
             lot_dates_url = url + [td.find('a') for td in lot_div][1].attrs['href']
-        except NoneType:
+        except:
             return False, False
         # get list with info from  lots table
         lot_div_table = lot_div.findAll('tr')
@@ -152,7 +187,7 @@ def get_lot_table_with_urls(order_url, okan_id):
             files_table_list.append(files_table_list_col)
         files_table_list = files_table_list[1:]
         # local_now_time = datetime.datetime.strptime('2017-03-20', "%Y-%m-%d")
-        local_now_time = datetime.datetime.now()
+
         new_file = ''
         new_href = []
         for sublist in files_table_list:
@@ -169,14 +204,17 @@ def download_file(url, okan_id):
     rq = recursion_request(url)
     rq_head = recursion_request_head(url)
     fname = re.findall("FileName=(.+)", rq_head)
-    local_filename_return = okan_id + '_' + fname[0].encode('latin_1', 'ignore').decode('utf-8').strip('"')
+    if fname.__len__() == 0:
+        fname = re.findall("'\\'(.+)", rq_head)
+        local_filename_return = okan_id[:6] + '_' + urllib.parse.unquote(fname[0]).replace('+', '_')
+    else:
+        local_filename_return = okan_id + '_' + fname[0].encode('latin_1', 'ignore').decode('utf-8').strip('"')
     local_filename = local_filename_return
     # local_filename = "//server1/1- script.files" + local_filename_return
     with open(local_filename, 'wb') as f:
         for chunk in rq.iter_content(chunk_size=1024):
             if chunk:  # filter out keep-alive new chunks
                 f.write(chunk)
-                # f.flush() commented by recommendation from J.F.Sebastian
     return local_filename_return
 
 
@@ -200,7 +238,7 @@ def get_data_table(lot_dates_url):
 def get_info_of_current_transaction(order_url, okan_id, local_now_time):
 
     if 'fabrikant' in order_url:
-        lot_table_list = get_lot_table_with_urls(order_url, okan_id)
+        lot_table_list, new_file = get_lot_table_with_urls(order_url, okan_id)
         if '(2)' in okan_id:
             events_of_current_transaction = {
                 'Текущая дата': local_now_time,
@@ -213,7 +251,7 @@ def get_info_of_current_transaction(order_url, okan_id, local_now_time):
                 'Время текущего события': '',
                 'Наименование': lot_table_list[2][1],
                 'НМЦ': lot_table_list[6][1],
-                'Новые файлы': ''
+                'Новые файлы': new_file
             }
             actual_status = lot_table_list[0][0].split("(")
             actual_status = actual_status[1][:-1]
@@ -229,7 +267,7 @@ def get_info_of_current_transaction(order_url, okan_id, local_now_time):
                 'Время текущего события': '',
                 'Наименование': lot_table_list[2][1],
                 'НМЦ': lot_table_list[6][1],
-                'Новые файлы': ''
+                'Новые файлы': new_file
             }
             actual_status = lot_table_list[0][0].split("(")
             actual_status = actual_status[1][:-1]
@@ -245,7 +283,7 @@ def get_info_of_current_transaction(order_url, okan_id, local_now_time):
                 'Время текущего события': '',
                 'Наименование': lot_table_list[2][1],
                 'НМЦ': lot_table_list[6][1],
-                'Новые файлы': ''
+                'Новые файлы': new_file
             }
             actual_status = lot_table_list[0][0].split("(")
             actual_status = actual_status[1][:-1]
@@ -261,7 +299,7 @@ def get_info_of_current_transaction(order_url, okan_id, local_now_time):
                 'Время текущего события': '',
                 'Наименование': lot_table_list[2][1],
                 'НМЦ': lot_table_list[6][1],
-                'Новые файлы': ''
+                'Новые файлы': new_file
             }
             actual_status = lot_table_list[0][0].split("(")
             actual_status = actual_status[1][:-1]
@@ -277,7 +315,7 @@ def get_info_of_current_transaction(order_url, okan_id, local_now_time):
                 'Время текущего события': '',
                 'Наименование': lot_table_list[2][1],
                 'НМЦ': lot_table_list[6][1],
-                'Новые файлы': ''
+                'Новые файлы': new_file
             }
             actual_status = lot_table_list[0][0].split("(")
             actual_status = actual_status[1][:-1]
@@ -310,11 +348,6 @@ def get_info_of_current_transaction(order_url, okan_id, local_now_time):
         else:
             events_of_current_transaction['Текущее событие'] = 'Оценочная стадия'
             events_of_current_transaction['Дата текущего события'] = events_of_current_transaction['Оценочная стадия']
-    # TODO удалить эту ересь, когда гениальные авторы фабриканта поставят актуальную дату
-    #     if 'id=21642' in order_url:
-    #         events_of_current_transaction['Текущее событие'] = 'Подача заявок'
-    #         events_of_current_transaction['Дата текущего события'] = \
-    #             datetime.datetime.now().replace(microsecond=0) + datetime.timedelta(days=1)
         if 'Идёт приём заявок' not in actual_status:
             events_of_current_transaction['Текущее событие'] = events_of_current_transaction[
                                                                    'Текущее событие'] + '(' + actual_status + ')'
