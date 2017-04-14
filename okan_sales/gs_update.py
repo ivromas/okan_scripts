@@ -21,11 +21,11 @@ class GSWorksheet:
             gs = gspread.authorize(credentials)
             return gs
         except TimeoutError:
-            time.sleep(5)
+            time.sleep(1)
             gs = self.recursion_auth()
             return gs
         except requests.exceptions.ConnectionError:
-            time.sleep(5)
+            time.sleep(1)
             gs = self.recursion_auth()
             return gs
 
@@ -35,7 +35,7 @@ class GSWorksheet:
             gsh_ok_sales = gs.open_by_key(config.SPREADSHEET_KEY)
             return gsh_ok_sales
         except requests.exceptions.SSLError:
-            time.sleep(5)
+            time.sleep(1)
             gsh_ok_sales = self.recursion_open_by_key()
             return gsh_ok_sales
 
@@ -53,15 +53,15 @@ def recursion_request(url):
         page = requests.get(url)
         return page
     except requests.exceptions.ConnectionError:
-        time.sleep(5)
+        time.sleep(1)
         page = recursion_request(url)
         return page
     except requests.packages.urllib3.exceptions.ProtocolError:
-        time.sleep(5)
+        time.sleep(1)
         page = recursion_request(url)
         return page
     except TimeoutError:
-        time.sleep(5)
+        time.sleep(1)
         page = recursion_request(url)
         return page
 
@@ -71,15 +71,15 @@ def recursion_request_head(url):
         page = requests.head(url).headers['content-disposition']
         return page
     except requests.exceptions.ConnectionError:
-        time.sleep(5)
+        time.sleep(1)
         page = requests.head(url).headers['content-disposition']
         return page
     except requests.packages.urllib3.exceptions.ProtocolError:
-        time.sleep(5)
+        time.sleep(1)
         page = requests.head(url).headers['content-disposition']
         return page
     except TimeoutError:
-        time.sleep(5)
+        time.sleep(1)
         page = requests.head(url).headers['content-disposition']
         return page
 
@@ -372,7 +372,20 @@ def get_info_of_current_transaction(order_url, okan_id, local_now_time):
             'НМЦ': lot_table_list[1][2],
             'Новые файлы': file_urls_list
         }
-
+        if '(3)' in okan_id:
+            lot_dates_url = 'http://zakupki.rosatom.ru/Web.aspx?node=currentorders&action=siteview&oid=404202&mode=lot'
+            events_of_current_transaction['НМЦ'] = lot_table_list[3][2]
+            events_of_current_transaction['Наименование'] = lot_table_list[3][1]
+        elif '(4)' in okan_id:
+            lot_dates_url = 'http://zakupki.rosatom.ru/Web.aspx?node=currentorders&action=siteview&oid=404203&mode=lot'
+            events_of_current_transaction['НМЦ'] = lot_table_list[4][2]
+            events_of_current_transaction['Наименование'] = lot_table_list[4][1]
+        elif '(8)' in okan_id:
+            lot_dates_url = 'http://zakupki.rosatom.ru/Web.aspx?node=currentorders&action=siteview&oid=404207&mode=lot'
+            events_of_current_transaction['НМЦ'] = lot_table_list[8][2]
+            events_of_current_transaction['Наименование'] = lot_table_list[8][1]
+        else:
+            pass
         if type(lot_dates_url) == bool:
             events_of_current_transaction['Текущее событие'] = 'Некорректо указан url'
             return events_of_current_transaction
