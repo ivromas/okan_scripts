@@ -210,7 +210,7 @@ def download_file(url, okan_id):
     else:
         local_filename_return = okan_id + '_' + fname[0].encode('latin_1', 'ignore').decode('utf-8').strip('"')
     local_filename = local_filename_return
-    # local_filename = "//server1/1- script.files" + local_filename_return
+    # local_filename = "//server1/1- script.files/" + local_filename_return
     with open(local_filename, 'wb') as f:
         for chunk in rq.iter_content(chunk_size=1024):
             if chunk:  # filter out keep-alive new chunks
@@ -258,9 +258,9 @@ def get_info_of_current_transaction(order_url, okan_id, local_now_time):
         elif '*(1)' in okan_id:
             events_of_current_transaction = {
                 'Текущая дата': local_now_time,
-                'Подача заявок': lot_table_list[15][1],
-                'Отборочная стадия': lot_table_list[16][1],
-                'Оценочная стадия': lot_table_list[17][1],
+                'Подача заявок': lot_table_list[14][1],
+                'Отборочная стадия': lot_table_list[15][1],
+                'Оценочная стадия': lot_table_list[16][1],
                 'Закрыт': '',
                 'Текущее событие': '',
                 'Дата текущего события': '23:59',
@@ -322,8 +322,11 @@ def get_info_of_current_transaction(order_url, okan_id, local_now_time):
 
         match = re.search(r'\d{2}.\d{2}.\d{4} \d{2}:\d{2}', events_of_current_transaction['Отборочная стадия'])
         events_of_current_transaction['Отборочная стадия'] = datetime.datetime.strptime(match.group(), "%d.%m.%Y %H:%M")
+
         match = re.search(r'\d{2}.\d{2}.\d{4} \d{2}:\d{2}', events_of_current_transaction['Подача заявок'])
         events_of_current_transaction['Подача заявок'] = datetime.datetime.strptime(match.group(), "%d.%m.%Y %H:%M")
+
+        match = re.search(r'\d{2}.\d{2}.\d{4} \d{2}:\d{2}', events_of_current_transaction['Оценочная стадия'])
         events_of_current_transaction['Оценочная стадия'] = datetime.datetime.strptime(
             events_of_current_transaction['Оценочная стадия'], "%d.%m.%Y %H:%M")
 
@@ -513,9 +516,11 @@ def sort_gs_table(list_of_lists):
         'Подача заявок': 1,
         'Подача заявок(Ожидает решения организатора)': 1,
         'Подача заявок(Приостановлен)': 1,
+        'Подача заявок(Ожидает решение по определению участников)': 1,
         'Отборочная стадия': 2,
         'Отборочная стадия(Приостановлен)': 2,
         'Отборочная стадия(Ожидает решения организатора)': 2,
+        'Отборочная стадия(Ожидает решение по определению участников)': 2,
         'Оценочная стадия': 4,
         'Оценочная стадия(Приостановлен)': 4,
         'Оценочная стадия(ЗАКРЫТ)': 4,
