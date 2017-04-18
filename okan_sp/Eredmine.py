@@ -81,7 +81,7 @@ class RedmineManager:
 
     # returns dict of projects name and projects id
     def get_project_list(self):
-        url = 'http://okantest1.easyredmine.com/projects.xml?&limit=100'
+        url = 'http://easy.okan.su/projects.xml?&limit=100'
         response_ = self.recursion_req(url)
         response_dict_ = xmltodict.parse(response_)
         projects = response_dict_['projects']['project']
@@ -92,7 +92,7 @@ class RedmineManager:
 
     # returns dict of trackers name and trackers id
     def get_trackers_list(self):
-        url = 'http://okantest1.easyredmine.com//trackers.xml?'
+        url = 'http://easy.okan.su/trackers.xml?'
         response_ = self.recursion_req(url)
         response_dict_ = xmltodict.parse(response_)
         trackers = response_dict_['trackers']['tracker']
@@ -103,7 +103,8 @@ class RedmineManager:
 
     # returns list of issues(full dict) of project, initialized by id
     def get_issues_list(self, project_id):
-        url_general = 'http://okantest1.easyredmine.com/issues.xml?project_id=' + project_id + '&offset=0&limit=100&tracker_id='
+        url_general = 'http://easy.okan.su/issues.xml?project_id=' + project_id + \
+                      '&offset=0&limit=100&tracker_id='
         necessary_trackers = self.updated_types
         list_of_issues = []
         for key in necessary_trackers:
@@ -121,7 +122,7 @@ class RedmineManager:
         return list_of_issues
 
     def get_contacts(self):
-        url = 'http://okantest1.easyredmine.com/easy_contacts.xml?offset=0&limit=100'
+        url = 'http://easy.okan.su/easy_contacts.xml?offset=0&limit=100'
         response_ = self.recursion_req(url)
         response_dict_ = xmltodict.parse(response_)
         return response_dict_
