@@ -9,10 +9,35 @@ import datetime
 import time
 import re
 import urllib.parse
+import sys
 import config
 
 
-class GSWorksheet:
+class ProgressBar:
+
+    @staticmethod
+    def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_length=100):
+        """
+        Call in a loop to create terminal progress bar
+        @params:
+            iteration   - Required  : current iteration (Int)
+            total       - Required  : total iterations (Int)
+            prefix      - Optional  : prefix string (Str)
+            suffix      - Optional  : suffix string (Str)
+            decimals    - Optional  : positive number of decimals in percent complete (Int)
+            bar_length  - Optional  : character length of bar (Int)
+        """
+        str_format = "{0:." + str(decimals) + "f}"
+        percents = str_format.format(100 * (iteration / float(total)))
+        filled_length = int(round(bar_length * iteration / float(total)))
+        bar = '█' * filled_length + '-' * (bar_length - filled_length)
+        sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
+        if iteration == total:
+            sys.stdout.write('\n')
+        sys.stdout.flush()
+
+
+class GSWorksheet(ProgressBar):
     def recursion_auth(self):
         credentials = self.credentials
         try:
@@ -38,32 +63,31 @@ class GSWorksheet:
             return gsh_ok_sales
 
     def update_gs(self, value_list):
-        print('updating GS...')
+        self.print_progress(0, len(value_list), prefix='Updating GS:', suffix='Complete', bar_length=50)
         for i in range(0, len(value_list)):
             j = str(i + 2)
             cell_list = self.worksheet.range('A' + j + ':V' + j)
             k = 0
+            self.print_progress(i, len(value_list), prefix='Updating GS:', suffix='Complete', bar_length=50)
             for cell in cell_list:
                 cell.value = value_list[i][k]
                 k += 1
             self.worksheet.update_cells(cell_list)
-        print('completed')
+        self.print_progress(len(value_list), len(value_list), prefix='Updating GS:', suffix='Completed', bar_length=50)
 
     def __init__(self, scope, credentials_path):
         self.scope = scope
-        self.credentials = ServiceAccountCredentials.from_json_keyfile_name(credentials_path,
-                                                                   self.scope)
+        self.credentials = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, self.scope)
         self.gs = self.recursion_auth()
         self.gsh_ok_sales = self.recursion_open_by_key()
         self.worksheet = self.gsh_ok_sales.get_worksheet(0)
 
 
-class TransactionsList:
+class TransactionsList(ProgressBar):
 
     @staticmethod
     def normilise_time(time):
         time = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
-
         if time.hour == 23 and time.minute == 59:
             time = time.strftime("%d.%m.%Y")
             time_exact = ''
@@ -71,6 +95,14 @@ class TransactionsList:
             time_exact = time.strftime("%H:%M")
             time = time.strftime("%d.%m.%Y")
         return time, time_exact
+
+    def get_number_of_lots(self):
+        list = self.list_of_lists
+        counter = 0
+        for col in list:
+            if col[0] == 'А' and len(col[16]) != 0:
+                counter += 1
+        return counter
 
     def sort_list(self):
         s_list_of_lists = sorted(self.list_of_lists, key=lambda x: x[0])
@@ -81,15 +113,13 @@ class TransactionsList:
             if s_point_start == s_list_of_lists[j][0]:
                 return_list.append(s_list_of_lists[j])
             elif s_point_start == 'А':
+                number_of_A = self.get_number_of_lots()
+                self.print_progress(0, number_of_A, prefix='Parsing', suffix='', bar_length=25)
                 for i in range(0, len(return_list)):
-                    progress = (1 - (len(return_list) - i) / len(return_list)) * 100
-                    progress = str(progress.__round__()) + '%'
-                    print(progress)
-                    del progress
-                    # parsing ulr, if exists
                     if len(return_list[i][16]) != 0:
                         okan_id = return_list[i][1]
                         order_url = return_list[i][16]
+                        self.print_progress(i, number_of_A, prefix='Parsing', suffix=order_url, bar_length=25)
                         tr_object = SingleTransaction(order_url, okan_id, self.local_time_now)
                         events_of_current_transaction = tr_object.events_of_current_transaction
                         return_list[i][3] = events_of_current_transaction['НМЦ']
@@ -105,7 +135,6 @@ class TransactionsList:
                     return_list[i][23] = int(self.sequence_of_events[return_list[i][7]])
                 # sort by number of event
                 list_of_list_sort = sorted(return_list, key=lambda x: x[23])
-                return_list = []
                 sort_list = []
                 sort_list_final = []
                 point_start = list_of_list_sort[0][23]
@@ -116,21 +145,21 @@ class TransactionsList:
                     else:
                         # даты есть только для 1.2.4 событий
                         if point_start < 3 or point_start is 4:
-                            sort_list_final = sort_list_final + sorted(sort_list,
-                                                                       key=lambda x: datetime.datetime.strptime(x[8],
-                                                                                                                "%Y-%m-%d %H:%M:%S"))
+                            sort_list_final = sort_list_final + \
+                                              sorted(sort_list,
+                                                     key=lambda x: datetime.datetime.strptime(x[8], "%Y-%m-%d %H:%M:%S")
+                                                     )
                         else:
-                            sort_list_final = sort_list_final + sort_list
+                            sort_list_final += sort_list
                         del sort_list
-                        sort_list = []
-                        sort_list.append(list_of_list_sort[i])
+                        sort_list = [list_of_list_sort[i]]
                         point_start = list_of_list_sort[i][23]
                 if point_start < 3 or point_start is 4:
                     sort_list_final = sort_list_final + sorted(sort_list,
                                                                key=lambda x: datetime.datetime.strptime(x[8],
                                                                                                         "%Y-%m-%d %H:%M:%S"))
                 else:
-                    sort_list_final = sort_list_final + sort_list
+                    sort_list_final += sort_list
                 del sort_list, point_start
                 for i in range(0, len(sort_list_final)):
                     if sort_list_final[i][23] < 3 or sort_list_final[i][23] is 4:
@@ -193,22 +222,21 @@ class SingleTransaction:
             page = self.recursion_request(url)
             return page
 
-    @staticmethod
-    def recursion_request_head(url):
+    def recursion_request_head(self, url):
         try:
             page = requests.head(url).headers['content-disposition']
             return page
         except requests.exceptions.ConnectionError:
             time.sleep(1)
-            page = requests.head(url).headers['content-disposition']
+            page = self.recursion_request_head(url)
             return page
         except requests.packages.urllib3.exceptions.ProtocolError:
             time.sleep(1)
-            page = requests.head(url).headers['content-disposition']
+            page = self.recursion_request_head(url)
             return page
         except TimeoutError:
             time.sleep(1)
-            page = requests.head(url).headers['content-disposition']
+            page = self.recursion_request_head(url)
             return page
 
     def download_file(self, url):
@@ -255,9 +283,13 @@ class SingleTransaction:
             data_list.append(data_list_col)
         return data_list
 
+    def math(self, event_name):
+        match = re.search(r'\d{2}.\d{2}.\d{4} \d{2}:\d{2}', self.events_of_current_transaction[event_name])
+        self.events_of_current_transaction[event_name] = datetime.datetime.strptime(match.group(), "%d.%m.%Y %H:%M")
+
     def get_lot_table_with_urls(self):
         # get url with a lot table
-        print(self.order_url)
+        # print(self.order_url)
         page = self.recursion_request(self.order_url)
         # assert(page.status_code == 200)
         # assert(page.status_code == 404)
@@ -351,32 +383,10 @@ class SingleTransaction:
             lot_table_list, new_file = self.get_lot_table_with_urls()
             actual_status = lot_table_list[0][0].split("(")
             actual_status = actual_status[1][:-1]
-            if '(2)' in self.okan_id:
-                self.events_of_current_transaction['Подача заявок'] = lot_table_list[16][1]
-                self.events_of_current_transaction['Отборочная стадия'] = lot_table_list[17][1]
-                self.events_of_current_transaction['Оценочная стадия'] = lot_table_list[18][1]
-                self.events_of_current_transaction['Наименование'] = lot_table_list[2][1]
-                self.events_of_current_transaction['НМЦ'] = lot_table_list[6][1]
-                self.events_of_current_transaction['Новые файлы'] = new_file
-
-            elif '*(1)' in self.okan_id:
+            if '*(1)' in self.okan_id:
                 self.events_of_current_transaction['Подача заявок'] = lot_table_list[14][1]
                 self.events_of_current_transaction['Отборочная стадия'] = lot_table_list[15][1]
                 self.events_of_current_transaction['Оценочная стадия'] = lot_table_list[16][1]
-                self.events_of_current_transaction['Наименование'] = lot_table_list[2][1]
-                self.events_of_current_transaction['НМЦ'] = lot_table_list[6][1]
-                self.events_of_current_transaction['Новые файлы'] = new_file
-            elif '(1)' in self.okan_id:
-                self.events_of_current_transaction['Подача заявок'] = lot_table_list[16][1]
-                self.events_of_current_transaction['Отборочная стадия'] = lot_table_list[17][1]
-                self.events_of_current_transaction['Оценочная стадия'] = lot_table_list[18][1]
-                self.events_of_current_transaction['Наименование'] = lot_table_list[2][1]
-                self.events_of_current_transaction['НМЦ'] = lot_table_list[6][1]
-                self.events_of_current_transaction['Новые файлы'] = new_file
-            elif '(3)' in self.okan_id:
-                self.events_of_current_transaction['Подача заявок'] = lot_table_list[16][1]
-                self.events_of_current_transaction['Отборочная стадия'] = lot_table_list[17][1]
-                self.events_of_current_transaction['Оценочная стадия'] = lot_table_list[18][1]
                 self.events_of_current_transaction['Наименование'] = lot_table_list[2][1]
                 self.events_of_current_transaction['НМЦ'] = lot_table_list[6][1]
                 self.events_of_current_transaction['Новые файлы'] = new_file
@@ -388,17 +398,9 @@ class SingleTransaction:
                 self.events_of_current_transaction['НМЦ'] = lot_table_list[6][1]
                 self.events_of_current_transaction['Новые файлы'] = new_file
 
-            match = re.search(r'\d{2}.\d{2}.\d{4} \d{2}:\d{2}', self.events_of_current_transaction['Отборочная стадия'])
-            self.events_of_current_transaction['Отборочная стадия'] = datetime.datetime.strptime(match.group(),
-                                                                                                 "%d.%m.%Y %H:%M")
-
-            match = re.search(r'\d{2}.\d{2}.\d{4} \d{2}:\d{2}', self.events_of_current_transaction['Подача заявок'])
-            self.events_of_current_transaction['Подача заявок'] = datetime.datetime.strptime(match.group(),
-                                                                                             "%d.%m.%Y %H:%M")
-
-            match = re.search(r'\d{2}.\d{2}.\d{4} \d{2}:\d{2}', self.events_of_current_transaction['Оценочная стадия'])
-            self.events_of_current_transaction['Оценочная стадия'] = datetime.datetime.strptime(match.group(),
-                                                                                             "%d.%m.%Y %H:%M")
+            self.math('Подача заявок')
+            self.math('Отборочная стадия')
+            self.math('Оценочная стадия')
 
             if self.local_now_time < self.events_of_current_transaction['Подача заявок']:
 
@@ -434,21 +436,25 @@ class SingleTransaction:
                 str(self.events_of_current_transaction['Оценочная стадия'])
             self.events_of_current_transaction['Дата текущего события'] = str(
                 self.events_of_current_transaction['Дата текущего события'])
+
         elif 'rosatom' in self.order_url:
             lot_dates_url, lot_table_list, new_file = self.get_lot_table_with_urls()
             self.events_of_current_transaction['Наименование'] = lot_table_list[1][1]
             self.events_of_current_transaction['НМЦ'] = lot_table_list[1][2]
             self.events_of_current_transaction['Новые файлы'] = new_file
             if '(3)' in self.okan_id:
-                lot_dates_url = 'http://zakupki.rosatom.ru/Web.aspx?node=currentorders&action=siteview&oid=404202&mode=lot'
+                lot_dates_url = \
+                    'http://zakupki.rosatom.ru/Web.aspx?node=currentorders&action=siteview&oid=404202&mode=lot'
                 self.events_of_current_transaction['НМЦ'] = lot_table_list[3][2]
                 self.events_of_current_transaction['Наименование'] = lot_table_list[3][1]
             elif '(4)' in self.okan_id:
-                lot_dates_url = 'http://zakupki.rosatom.ru/Web.aspx?node=currentorders&action=siteview&oid=404203&mode=lot'
+                lot_dates_url = \
+                    'http://zakupki.rosatom.ru/Web.aspx?node=currentorders&action=siteview&oid=404203&mode=lot'
                 self.events_of_current_transaction['НМЦ'] = lot_table_list[4][2]
                 self.events_of_current_transaction['Наименование'] = lot_table_list[4][1]
             elif '(8)' in self.okan_id:
-                lot_dates_url = 'http://zakupki.rosatom.ru/Web.aspx?node=currentorders&action=siteview&oid=404207&mode=lot'
+                lot_dates_url = \
+                    'http://zakupki.rosatom.ru/Web.aspx?node=currentorders&action=siteview&oid=404207&mode=lot'
                 self.events_of_current_transaction['НМЦ'] = lot_table_list[8][2]
                 self.events_of_current_transaction['Наименование'] = lot_table_list[8][1]
             else:
@@ -460,18 +466,16 @@ class SingleTransaction:
                 sublist[1] = sublist[1].replace(u'\xa0', u'')
 
                 if len(sublist[1]) < 11:
-                    sublist[1] = sublist[1] + ' 23:59'
+                    sublist[1] += ' 23:59'
 
                 if 'Дата и время продления срока подачи' in sublist[0]:
                     self.events_of_current_transaction['Подача заявок'] = sublist[1]
                 elif 'Дата и время окончания подачи' in sublist[0]:
                     self.events_of_current_transaction['Подача заявок'] = sublist[1]
-
                 if 'Измененная дата рассмотрения' in sublist[0]:
                     self.events_of_current_transaction['Отборочная стадия'] = sublist[1]
                 elif 'Дата рассмотрения' in sublist[0]:
                     self.events_of_current_transaction['Отборочная стадия'] = sublist[1]
-
                 if 'Измененная дата подведения итогов' in sublist[0]:
                     self.events_of_current_transaction['Оценочная стадия'] = sublist[1]
                 elif 'Дата подведения итогов' in sublist[0]:
@@ -479,6 +483,7 @@ class SingleTransaction:
 
                 if 'Закрыт' in sublist[0] and 'Да' == sublist[1]:
                     self.events_of_current_transaction['Закрыт'] = '(ЗАКРЫТ)'
+
             self.events_of_current_transaction['Подача заявок'] = datetime.datetime.strptime(str(
                 self.events_of_current_transaction['Подача заявок']), "%d.%m.%Y %H:%M")
             self.events_of_current_transaction['Отборочная стадия'] = datetime.datetime.strptime(
