@@ -257,7 +257,5 @@ def main():
 
     print('done')
 
-
-# TODO make some processing indicators
 if __name__ == '__main__':
     main()
