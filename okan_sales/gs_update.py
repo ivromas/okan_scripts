@@ -114,6 +114,7 @@ class TransactionsList(ProgressBar):
                 return_list.append(s_list_of_lists[j])
             elif s_point_start == 'А':
                 number_of_A = self.get_number_of_lots()
+                print('\n')
                 self.print_progress(0, number_of_A, prefix='Parsing', suffix='', bar_length=25)
                 for i in range(0, len(return_list)):
                     if len(return_list[i][16]) != 0:
@@ -388,7 +389,7 @@ class SingleTransaction:
                 self.events_of_current_transaction['Отборочная стадия'] = lot_table_list[15][1]
                 self.events_of_current_transaction['Оценочная стадия'] = lot_table_list[16][1]
                 self.events_of_current_transaction['Наименование'] = lot_table_list[2][1]
-                self.events_of_current_transaction['НМЦ'] = lot_table_list[6][1]
+                self.events_of_current_transaction['НМЦ'] = lot_table_list[5][1]
                 self.events_of_current_transaction['Новые файлы'] = new_file
             else:
                 self.events_of_current_transaction['Подача заявок'] = lot_table_list[16][1]

@@ -8,17 +8,47 @@ import time
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
 import datetime
+import sys
 import config
 
 
+# class with method of progress bar only :)
+class ProgressBar:
+
+    @staticmethod
+    def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_length=100):
+        """
+        Call in a loop to create terminal progress bar
+        @params:
+            iteration   - Required  : current iteration (Int)
+            total       - Required  : total iterations (Int)
+            prefix      - Optional  : prefix string (Str)
+            suffix      - Optional  : suffix string (Str)
+            decimals    - Optional  : positive number of decimals in percent complete (Int)
+            bar_length  - Optional  : character length of bar (Int)
+        """
+        str_format = "{0:." + str(decimals) + "f}"
+        percents = str_format.format(100 * (iteration / float(total)))
+        filled_length = int(round(bar_length * iteration / float(total)))
+        bar = '█' * filled_length + '-' * (bar_length - filled_length)
+        sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
+        if iteration == total:
+            sys.stdout.write('\n')
+        sys.stdout.flush()
+
+
 # class returns googlesheet object with initial parameters(general gs url, local gs token *.json object, key of gs)
-class GSWorksheet:
+class GSWorksheet(ProgressBar):
     def recursion_auth(self):
         credentials = self.credentials
         try:
             gs = gspread.authorize(credentials)
             return gs
         except TimeoutError:
+            time.sleep(1)
+            gs = self.recursion_auth()
+            return gs
+        except requests.exceptions.ConnectionError:
             time.sleep(1)
             gs = self.recursion_auth()
             return gs
@@ -33,6 +63,21 @@ class GSWorksheet:
             gsh_ok_sp = self.recursion_open_by_key()
             return gsh_ok_sp
 
+    # update sp_gs
+    def update_sp_gs(self, redmine_object, sp_list):
+        self.print_progress(0, len(sp_list), prefix='Updating GS:', suffix='Complete', bar_length=50)
+        for i in range(0, len(sp_list)):
+            j = str(i + 2)
+            cell_list = \
+                self.worksheet_sp.range(config.UPDATE_GS_START_POSITION + j + config.UPDATE_GS_STOP_POSITION + j)
+            k = redmine_object.updated_types_sequence['Отгрузка в РФ']
+            self.print_progress(i, len(sp_list), prefix='Updating GS:', suffix='Complete', bar_length=50)
+            for cell in cell_list:
+                cell.value = sp_list[i][k]
+                k += 1
+            self.worksheet_sp.update_cells(cell_list)
+        self.print_progress(len(sp_list), len(sp_list), prefix='Updating GS:', suffix='Completed', bar_length=50)
+
     def __init__(self, scope, credentials_path, gs_key):
         self.gs_key = gs_key
         self.scope = scope
@@ -40,22 +85,22 @@ class GSWorksheet:
                                                                             self.scope)
         self.gs = self.recursion_auth()
         self.gsh_ok_sp = self.recursion_open_by_key()
+        self.worksheet_sp = self.gsh_ok_sp.worksheet('SP')
 
 
 # class that returns different parameters of issues
-class RedmineManager:
+class RedmineManager(ProgressBar):
+
     def recursion_req(self, url):
         try:
             response_ = requests.get(url, auth=(self.LOGIN, self.KEY)).content.decode('utf-8')
             return response_
         except TimeoutError:
             time.sleep(1)
-            print('Oops, self.recursion_req()')
             response_ = self.recursion_req(url)
             return response_
         except requests.exceptions.ConnectionError:
             time.sleep(1)
-            print('Oops, self.recursion_req()')
             response_ = self.recursion_req(url)
             return response_
 
@@ -67,7 +112,8 @@ class RedmineManager:
             'tracker': issue_dict['tracker']['@name'],
             'products': ''
         }
-        print(return_dict['tracker'])
+        assert return_dict['date'] is not None, 'Error in due date in issue %r ' % issue_dict['id']
+        # print(return_dict['tracker'])
         # if return_dict['tracker'] == 'ВК' or return_dict['tracker'] == 'Инспекция':
         if issue_dict['custom_fields']['custom_field'].__len__() == 2:
                 return_dict['products'] = issue_dict['custom_fields']['custom_field'][0]['value']['value']
@@ -121,13 +167,55 @@ class RedmineManager:
                     list_of_issues.append(self.get_issue_info(dict))
         return list_of_issues
 
-    def get_contacts(self):
-        url = 'http://easy.okan.su/easy_contacts.xml?offset=0&limit=100'
-        response_ = self.recursion_req(url)
-        response_dict_ = xmltodict.parse(response_)
-        return response_dict_
+    def get_issue_info_list(self):
+        some_list = []
+        self.print_progress(0, len(self.unique_projects_list),
+                            prefix='Getting issue info:', suffix='Complete', bar_length=50)
+        for i in range(0, self.unique_projects_list.__len__()):
+            self.print_progress(i, len(self.unique_projects_list),
+                                prefix='Getting issue info:', suffix='Complete', bar_length=50)
+            project_id = self.projects_id[self.unique_projects_list[i]]
+            some_list.append(self.get_issues_list(project_id))
+            list_of_dicts = [val for sublist in some_list for val in sublist]
+        self.print_progress(len(self.unique_projects_list), len(self.unique_projects_list),
+                            prefix='Getting issue info:', suffix='Completed', bar_length=50)
+        return list_of_dicts
 
-    def __init__(self, login, key):
+    def update_issue_info(self):
+        issue_info_list = self.get_issue_info_list()
+        def to_date_(x):
+            try:
+                x['date'] = datetime.datetime.strptime(x['date'], "%Y-%m-%d").date()
+            except TypeError:
+                pass
+        [to_date_(x) for x in issue_info_list]
+        self.print_progress(0, len(issue_info_list), prefix='Updating GS info:', suffix='Complete', bar_length=50)
+        j = 0
+        for dict in issue_info_list:
+            j += 1
+            date_position = self.updated_types_sequence[dict['tracker']]
+            self.print_progress(j, len(issue_info_list), prefix='Updating GS info:', suffix='Complete', bar_length=50)
+            for i in range(0, self.sp_list.__len__()):
+                self.get_products_status(self.sp_list[i][self.updated_types_sequence['Код KKS']], issue_info_list)
+                self.sp_list[i][14] = self.one_dict['status']
+                if any(self.sp_list[i][self.updated_types_sequence['Код KKS']] in x for x in
+                       dict['products']):
+                    self.sp_list[i][date_position] = dict['date']
+        # self.print_progress(len(issue_info_list), len(issue_info_list),
+        #                      prefix='Updating GS info:', suffix='Completed', bar_length=50)
+
+    def get_products_status(self, item, list_of_dicts):
+        self.one_dict['name'] = item
+        for j in range(0, list_of_dicts.__len__()):
+            if any(self.one_dict['name'] in x for x in list_of_dicts[j]['products']):
+                if len(self.one_dict['status']) == 0:
+                    self.one_dict['date'] = list_of_dicts[j]['date']
+                    self.one_dict['status'] = list_of_dicts[j]['name']
+                elif self.one_dict['date'] > list_of_dicts[j]['date']:
+                    self.one_dict['date'] = list_of_dicts[j]['date']
+                    self.one_dict['status'] = list_of_dicts[j]['name']
+
+    def __init__(self, login, key, sp_list):
         self.KEY = key
         self.LOGIN = login
         self.updated_types = {
@@ -146,74 +234,28 @@ class RedmineManager:
             'Код KKS': 3,
             'Текущий статус': 14
         }
+        self.one_dict = {
+            'name': '',
+            'date': '',
+            'status': ''
+        }
         self.trackers_id = self.get_trackers_list()
         self.projects_id = self.get_project_list()
-        self.contacts = self.get_contacts()
-        # print(1)
-
-
-# update sp_gs
-def update_sp_gs(redmine_object, sp_list, worksheet_sp):
-    for i in range(0, len(sp_list)):
-        j = str(i + 2)
-        cell_list = worksheet_sp.range(config.UPDATE_GS_START_POSITION + j + config.UPDATE_GS_STOP_POSITION + j)
-        k = redmine_object.updated_types_sequence['Отгрузка в РФ']
-        for cell in cell_list:
-            cell.value = sp_list[i][k]
-            k += 1
-        worksheet_sp.update_cells(cell_list)
-
-
-# method updates sp list with current issue info
-def update_issue_info(redmine_object, list_of_dicts, list_of_lists):
-    def to_date_(x):
-        try:
-            x['date'] = datetime.datetime.strptime(x['date'], "%Y-%m-%d").date()
-        except TypeError:
-            pass
-    [to_date_(x) for x in list_of_dicts]
-    for dict in list_of_dicts:
-        date_position = redmine_object.updated_types_sequence[dict['tracker']]
-        for i in range(0, list_of_lists.__len__()):
-            list_of_lists[i][14] = \
-                get_products_status(list_of_lists[i][redmine_object.updated_types_sequence['Код KKS']], list_of_dicts)
-            if any(list_of_lists[i][redmine_object.updated_types_sequence['Код KKS']] in x for x in dict['products']):
-                list_of_lists[i][date_position] = dict['date']
-
-
-def get_products_status(item, list_of_dicts):
-    one_dict = {
-        'name': item,
-        'date': '',
-        'status': ''
-    }
-    for j in range(0, list_of_dicts.__len__()):
-        if any(one_dict['name'] in x for x in list_of_dicts[j]['products']):
-            if len(one_dict['status']) == 0:
-                one_dict['date'] = list_of_dicts[j]['date']
-                one_dict['status'] = list_of_dicts[j]['name']
-            elif one_dict['date'] > list_of_dicts[j]['date']:
-                one_dict['date'] = list_of_dicts[j]['date']
-                one_dict['status'] = list_of_dicts[j]['name']
-    return one_dict['status']
+        self.sp_list = sp_list
+        self.unique_projects_list = list(set([sublist[0] for sublist in sp_list]))
 
 
 def main():
+
     gs_worksheet = GSWorksheet(config.SPREADSHEET_URL, config.GOOGLE_ENGINE_TOKEN_WAY, config.SPREADSHEET_KEY)
-    worksheet_sp = gs_worksheet.gsh_ok_sp.worksheet('SP')
-    sp_list = worksheet_sp.get_all_values()
-    sp_list = sp_list[1:]
-    unique_projects_list = list(set([sublist[0] for sublist in sp_list]))
-    redmine_object = RedmineManager(config.LOGIN, config.KEY)
-    some_list = []
-    for i in range(0, unique_projects_list.__len__()):
-        project_id = redmine_object.projects_id[unique_projects_list[i]]
-        print(project_id)
-        some_list.append(redmine_object.get_issues_list(project_id))
-        list_of_dicts = [val for sublist in some_list for val in sublist]
-    update_issue_info(redmine_object, list_of_dicts, sp_list)
-    update_sp_gs(redmine_object, sp_list, worksheet_sp)
-    print('jo')
+    sp_list = gs_worksheet.worksheet_sp.get_all_values()[1:]
+
+    redmine_object = RedmineManager(config.LOGIN, config.KEY, sp_list)
+    redmine_object.update_issue_info()
+
+    gs_worksheet.update_sp_gs(redmine_object, sp_list)
+
+    print('done')
 
 
 # TODO make some processing indicators
