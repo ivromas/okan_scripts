@@ -62,6 +62,12 @@ class GSWorksheet(ProgressBar):
             gsh_ok_sales = self.recursion_open_by_key()
             return gsh_ok_sales
 
+    def recursion_update_gs(self, cell):
+        try:
+            self.worksheet.update_cells(cell)
+        except gspread.exceptions.RequestError:
+            self.recursion_update_gs(cell)
+
     def update_gs(self, value_list):
         self.print_progress(0, len(value_list), prefix='Updating GS:', suffix='Complete', bar_length=50)
         for i in range(0, len(value_list)):
@@ -72,7 +78,7 @@ class GSWorksheet(ProgressBar):
             for cell in cell_list:
                 cell.value = value_list[i][k]
                 k += 1
-            self.worksheet.update_cells(cell_list)
+            self.recursion_update_gs(cell_list)
         self.print_progress(len(value_list), len(value_list), prefix='Updating GS:', suffix='Completed', bar_length=50)
 
     def __init__(self, scope, credentials_path):

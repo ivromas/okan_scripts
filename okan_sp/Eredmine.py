@@ -63,6 +63,12 @@ class GSWorksheet(ProgressBar):
             gsh_ok_sp = self.recursion_open_by_key()
             return gsh_ok_sp
 
+    def recursion_update_gs(self, cell):
+        try:
+            self.worksheet_sp.update_cells(cell)
+        except gspread.exceptions.RequestError:
+            self.recursion_update_gs(cell)
+
     # update sp_gs
     def update_sp_gs(self, redmine_object, sp_list):
         self.print_progress(0, len(sp_list), prefix='Updating GS:', suffix='Complete', bar_length=50)
@@ -75,7 +81,7 @@ class GSWorksheet(ProgressBar):
             for cell in cell_list:
                 cell.value = sp_list[i][k]
                 k += 1
-            self.worksheet_sp.update_cells(cell_list)
+            self.recursion_update_gs(cell_list)
         self.print_progress(len(sp_list), len(sp_list), prefix='Updating GS:', suffix='Completed', bar_length=50)
 
     def __init__(self, scope, credentials_path, gs_key):
@@ -206,6 +212,8 @@ class RedmineManager(ProgressBar):
 
     def get_products_status(self, item, list_of_dicts):
         self.one_dict['name'] = item
+        self.one_dict['date'] = ''
+        self.one_dict['status'] = ''
         for j in range(0, list_of_dicts.__len__()):
             if any(self.one_dict['name'] in x for x in list_of_dicts[j]['products']):
                 if len(self.one_dict['status']) == 0:
