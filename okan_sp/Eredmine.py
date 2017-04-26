@@ -45,11 +45,9 @@ class GSWorksheet(ProgressBar):
             gs = gspread.authorize(credentials)
             return gs
         except TimeoutError:
-            time.sleep(1)
             gs = self.recursion_auth()
             return gs
-        except requests.exceptions.ConnectionError:
-            time.sleep(1)
+        except requests.exceptions.RequestException:
             gs = self.recursion_auth()
             return gs
 
@@ -58,8 +56,7 @@ class GSWorksheet(ProgressBar):
         try:
             gsh_ok_sp = gs.open_by_key(self.gs_key)
             return gsh_ok_sp
-        except requests.exceptions.SSLError:
-            time.sleep(5)
+        except requests.exceptions.RequestException:
             gsh_ok_sp = self.recursion_open_by_key()
             return gsh_ok_sp
 
@@ -102,11 +99,9 @@ class RedmineManager(ProgressBar):
             response_ = requests.get(url, auth=(self.LOGIN, self.KEY)).content.decode('utf-8')
             return response_
         except TimeoutError:
-            time.sleep(1)
             response_ = self.recursion_req(url)
             return response_
-        except requests.exceptions.ConnectionError:
-            time.sleep(1)
+        except requests.exceptions.RequestException:
             response_ = self.recursion_req(url)
             return response_
 
@@ -189,6 +184,7 @@ class RedmineManager(ProgressBar):
 
     def update_issue_info(self):
         issue_info_list = self.get_issue_info_list()
+
         def to_date_(x):
             try:
                 x['date'] = datetime.datetime.strptime(x['date'], "%Y-%m-%d").date()
@@ -205,7 +201,7 @@ class RedmineManager(ProgressBar):
                 self.get_products_status(self.sp_list[i][self.updated_types_sequence['Код KKS']], issue_info_list)
                 self.sp_list[i][14] = self.one_dict['status']
                 if any(self.sp_list[i][self.updated_types_sequence['Код KKS']] in x for x in
-                       dict['products']):
+                       dict['products']) and date_position != 0:
                     self.sp_list[i][date_position] = dict['date']
         # self.print_progress(len(issue_info_list), len(issue_info_list),
         #                      prefix='Updating GS info:', suffix='Completed', bar_length=50)
@@ -232,6 +228,7 @@ class RedmineManager(ProgressBar):
             'Подписание ТОРГ-12': '',
             'ВК': '',
             'Платёж': '',
+            'Инспекция': ''
         }
         self.updated_types_sequence = {
             'Отгрузка в РФ': 9,
@@ -240,7 +237,8 @@ class RedmineManager(ProgressBar):
             'ВК': 12,
             'Платёж': 13,
             'Код KKS': 3,
-            'Текущий статус': 14
+            'Текущий статус': 14,
+            'Инспекция': 0
         }
         self.one_dict = {
             'name': '',

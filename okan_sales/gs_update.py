@@ -44,11 +44,9 @@ class GSWorksheet(ProgressBar):
             gs = gspread.authorize(credentials)
             return gs
         except TimeoutError:
-            time.sleep(1)
             gs = self.recursion_auth()
             return gs
-        except requests.exceptions.ConnectionError:
-            time.sleep(1)
+        except requests.exceptions.RequestException:
             gs = self.recursion_auth()
             return gs
 
@@ -57,8 +55,7 @@ class GSWorksheet(ProgressBar):
         try:
             gsh_ok_sales = gs.open_by_key(config.SPREADSHEET_KEY)
             return gsh_ok_sales
-        except requests.exceptions.SSLError:
-            time.sleep(1)
+        except requests.exceptions.RequestException:
             gsh_ok_sales = self.recursion_open_by_key()
             return gsh_ok_sales
 
@@ -216,16 +213,10 @@ class SingleTransaction:
         try:
             page = requests.get(url)
             return page
-        except requests.exceptions.ConnectionError:
-            time.sleep(1)
-            page = self.recursion_request(url)
-            return page
-        except requests.packages.urllib3.exceptions.ProtocolError:
-            time.sleep(1)
+        except requests.exceptions.RequestException:
             page = self.recursion_request(url)
             return page
         except TimeoutError:
-            time.sleep(1)
             page = self.recursion_request(url)
             return page
 
@@ -233,16 +224,10 @@ class SingleTransaction:
         try:
             page = requests.head(url).headers['content-disposition']
             return page
-        except requests.exceptions.ConnectionError:
-            time.sleep(1)
-            page = self.recursion_request_head(url)
-            return page
-        except requests.packages.urllib3.exceptions.ProtocolError:
-            time.sleep(1)
+        except requests.exceptions.RequestException:
             page = self.recursion_request_head(url)
             return page
         except TimeoutError:
-            time.sleep(1)
             page = self.recursion_request_head(url)
             return page
 
