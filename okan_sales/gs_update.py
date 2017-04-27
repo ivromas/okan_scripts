@@ -129,14 +129,20 @@ class TransactionsList(ProgressBar):
                         return_list[i][config.TABLE_NMC_POS] = events_of_current_transaction['НМЦ']
                         return_list[i][config.TABLE_NAME_POS] = events_of_current_transaction['Наименование']
                         return_list[i][config.TABLE_CURRENT_ACT_POS] = events_of_current_transaction['Текущее событие']
-                        return_list[i][config.TABLE_DATE_CURRENT_ACT_POS] = events_of_current_transaction['Дата текущего события']
-                        return_list[i][config.TABLE_TIME_CURRENT_ACT_POS] = events_of_current_transaction['Время текущего события']
-                        return_list[i][config.TABLE_SUBMIT_APPLICATIONS_POS] = events_of_current_transaction['Подача заявок']
-                        return_list[i][config.TABLE_QUALIFYING_STAGE_POS] = events_of_current_transaction['Отборочная стадия']
-                        return_list[i][config.TABLE_EVALUATION_STAGE_POS] = events_of_current_transaction['Оценочная стадия']
+                        return_list[i][config.TABLE_DATE_CURRENT_ACT_POS] =\
+                            events_of_current_transaction['Дата текущего события']
+                        return_list[i][config.TABLE_TIME_CURRENT_ACT_POS] =\
+                            events_of_current_transaction['Время текущего события']
+                        return_list[i][config.TABLE_SUBMIT_APPLICATIONS_POS] =\
+                            events_of_current_transaction['Подача заявок']
+                        return_list[i][config.TABLE_QUALIFYING_STAGE_POS] =\
+                            events_of_current_transaction['Отборочная стадия']
+                        return_list[i][config.TABLE_EVALUATION_STAGE_POS] =\
+                            events_of_current_transaction['Оценочная стадия']
                         return_list[i][config.TABLE_NEW_FILE_POS] = events_of_current_transaction['Новые файлы']
                     # check all events
-                    return_list[i][config.TABLE_SORT_FACTOR_POS] = int(self.sequence_of_events[return_list[i][config.TABLE_CURRENT_ACT_POS]])
+                    return_list[i][config.TABLE_SORT_FACTOR_POS] = \
+                        int(self.sequence_of_events[return_list[i][config.TABLE_CURRENT_ACT_POS]])
                 # sort by number of event
                 list_of_list_sort = sorted(return_list, key=lambda x: x[config.TABLE_SORT_FACTOR_POS])
                 sort_list = []
@@ -168,7 +174,7 @@ class TransactionsList(ProgressBar):
                 for i in range(0, len(sort_list_final)):
                     if sort_list_final[i][config.TABLE_SORT_FACTOR_POS] < 3 or sort_list_final[i][config.TABLE_SORT_FACTOR_POS] is 4:
                         if len(sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS]) > 10:
-                            sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS], sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS] = self.normilise_time(sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS])
+                            sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS], sort_list_final[i][config.TABLE_TIME_CURRENT_ACT_POS] = self.normilise_time(sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS])
                         if len(sort_list_final[i][config.TABLE_SUBMIT_APPLICATIONS_POS]) > 10:
                             sort_list_final[i][config.TABLE_SUBMIT_APPLICATIONS_POS], x = self.normilise_time(sort_list_final[i][config.TABLE_SUBMIT_APPLICATIONS_POS])
                         if len(sort_list_final[i][config.TABLE_QUALIFYING_STAGE_POS]) > 10:
