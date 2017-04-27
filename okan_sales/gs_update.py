@@ -103,7 +103,7 @@ class TransactionsList(ProgressBar):
         list = self.list_of_lists
         counter = 0
         for col in list:
-            if col[0] == 'А' and len(col[16]) != 0:
+            if col[0] == 'А' and len(col[config.TABLE_URL_POS]) != 0:
                 counter += 1
         return counter
 
@@ -117,64 +117,64 @@ class TransactionsList(ProgressBar):
                 return_list.append(s_list_of_lists[j])
             elif s_point_start == 'А':
                 number_of_A = self.get_number_of_lots()
-                print('\n')
+                # print('\n')
                 self.print_progress(0, number_of_A, prefix='Parsing', suffix='', bar_length=25)
                 for i in range(0, len(return_list)):
-                    if len(return_list[i][16]) != 0:
+                    if len(return_list[i][config.TABLE_URL_POS]) != 0:
                         okan_id = return_list[i][1]
-                        order_url = return_list[i][16]
+                        order_url = return_list[i][config.TABLE_URL_POS]
                         self.print_progress(i, number_of_A, prefix='Parsing', suffix=order_url, bar_length=25)
                         tr_object = SingleTransaction(order_url, okan_id, self.local_time_now)
                         events_of_current_transaction = tr_object.events_of_current_transaction
-                        return_list[i][3] = events_of_current_transaction['НМЦ']
-                        return_list[i][4] = events_of_current_transaction['Наименование']
-                        return_list[i][7] = events_of_current_transaction['Текущее событие']
-                        return_list[i][8] = events_of_current_transaction['Дата текущего события']
-                        return_list[i][9] = events_of_current_transaction['Время текущего события']
-                        return_list[i][10] = events_of_current_transaction['Подача заявок']
-                        return_list[i][11] = events_of_current_transaction['Отборочная стадия']
-                        return_list[i][12] = events_of_current_transaction['Оценочная стадия']
-                        return_list[i][6] = events_of_current_transaction['Новые файлы']
+                        return_list[i][config.TABLE_NMC_POS] = events_of_current_transaction['НМЦ']
+                        return_list[i][config.TABLE_NAME_POS] = events_of_current_transaction['Наименование']
+                        return_list[i][config.TABLE_CURRENT_ACT_POS] = events_of_current_transaction['Текущее событие']
+                        return_list[i][config.TABLE_DATE_CURRENT_ACT_POS] = events_of_current_transaction['Дата текущего события']
+                        return_list[i][config.TABLE_TIME_CURRENT_ACT_POS] = events_of_current_transaction['Время текущего события']
+                        return_list[i][config.TABLE_SUBMIT_APPLICATIONS_POS] = events_of_current_transaction['Подача заявок']
+                        return_list[i][config.TABLE_QUALIFYING_STAGE_POS] = events_of_current_transaction['Отборочная стадия']
+                        return_list[i][config.TABLE_EVALUATION_STAGE_POS] = events_of_current_transaction['Оценочная стадия']
+                        return_list[i][config.TABLE_NEW_FILE_POS] = events_of_current_transaction['Новые файлы']
                     # check all events
-                    return_list[i][23] = int(self.sequence_of_events[return_list[i][7]])
+                    return_list[i][config.TABLE_SORT_FACTOR_POS] = int(self.sequence_of_events[return_list[i][config.TABLE_CURRENT_ACT_POS]])
                 # sort by number of event
-                list_of_list_sort = sorted(return_list, key=lambda x: x[23])
+                list_of_list_sort = sorted(return_list, key=lambda x: x[config.TABLE_SORT_FACTOR_POS])
                 sort_list = []
                 sort_list_final = []
-                point_start = list_of_list_sort[0][23]
+                point_start = list_of_list_sort[0][config.TABLE_SORT_FACTOR_POS]
                 # sort by date for each event
                 for i in range(0, len(list_of_list_sort)):
-                    if point_start == list_of_list_sort[i][23]:
+                    if point_start == list_of_list_sort[i][config.TABLE_SORT_FACTOR_POS]:
                         sort_list.append(list_of_list_sort[i])
                     else:
                         # даты есть только для 1.2.4 событий
                         if point_start < 3 or point_start is 4:
                             sort_list_final = sort_list_final + \
                                               sorted(sort_list,
-                                                     key=lambda x: datetime.datetime.strptime(x[8], "%Y-%m-%d %H:%M:%S")
+                                                     key=lambda x: datetime.datetime.strptime(x[config.TABLE_DATE_CURRENT_ACT_POS], "%Y-%m-%d %H:%M:%S")
                                                      )
                         else:
                             sort_list_final += sort_list
                         del sort_list
                         sort_list = [list_of_list_sort[i]]
-                        point_start = list_of_list_sort[i][23]
+                        point_start = list_of_list_sort[i][config.TABLE_SORT_FACTOR_POS]
                 if point_start < 3 or point_start is 4:
                     sort_list_final = sort_list_final + sorted(sort_list,
-                                                               key=lambda x: datetime.datetime.strptime(x[8],
+                                                               key=lambda x: datetime.datetime.strptime(x[config.TABLE_DATE_CURRENT_ACT_POS],
                                                                                                         "%Y-%m-%d %H:%M:%S"))
                 else:
                     sort_list_final += sort_list
                 del sort_list, point_start
                 for i in range(0, len(sort_list_final)):
-                    if sort_list_final[i][23] < 3 or sort_list_final[i][23] is 4:
-                        if len(sort_list_final[i][8]) > 10:
-                            sort_list_final[i][8], sort_list_final[i][9] = self.normilise_time(sort_list_final[i][8])
-                        if len(sort_list_final[i][10]) > 10:
-                            sort_list_final[i][10], x = self.normilise_time(sort_list_final[i][10])
-                        if len(sort_list_final[i][11]) > 10:
-                            sort_list_final[i][11], x = self.normilise_time(sort_list_final[i][11])
-                        if len(sort_list_final[i][12]) > 10:
-                            sort_list_final[i][12], x = self.normilise_time(sort_list_final[i][12])
+                    if sort_list_final[i][config.TABLE_SORT_FACTOR_POS] < 3 or sort_list_final[i][config.TABLE_SORT_FACTOR_POS] is 4:
+                        if len(sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS]) > 10:
+                            sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS], sort_list_final[i][config.TABLE_CURRENT_ACT_POS] = self.normilise_time(sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS])
+                        if len(sort_list_final[i][config.TABLE_SUBMIT_APPLICATIONS_POS]) > 10:
+                            sort_list_final[i][config.TABLE_SUBMIT_APPLICATIONS_POS], x = self.normilise_time(sort_list_final[i][config.TABLE_SUBMIT_APPLICATIONS_POS])
+                        if len(sort_list_final[i][config.TABLE_QUALIFYING_STAGE_POS]) > 10:
+                            sort_list_final[i][config.TABLE_QUALIFYING_STAGE_POS], x = self.normilise_time(sort_list_final[i][config.TABLE_QUALIFYING_STAGE_POS])
+                        if len(sort_list_final[i][config.TABLE_EVALUATION_STAGE_POS]) > 10:
+                            sort_list_final[i][config.TABLE_EVALUATION_STAGE_POS], x = self.normilise_time(sort_list_final[i][config.TABLE_EVALUATION_STAGE_POS])
                 sort_list_to_return = sort_list_final
                 break
         self.list_of_lists = []
