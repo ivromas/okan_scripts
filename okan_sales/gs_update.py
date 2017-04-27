@@ -168,7 +168,7 @@ class TransactionsList(ProgressBar):
                 for i in range(0, len(sort_list_final)):
                     if sort_list_final[i][config.TABLE_SORT_FACTOR_POS] < 3 or sort_list_final[i][config.TABLE_SORT_FACTOR_POS] is 4:
                         if len(sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS]) > 10:
-                            sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS], sort_list_final[i][config.TABLE_CURRENT_ACT_POS] = self.normilise_time(sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS])
+                            sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS], sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS] = self.normilise_time(sort_list_final[i][config.TABLE_DATE_CURRENT_ACT_POS])
                         if len(sort_list_final[i][config.TABLE_SUBMIT_APPLICATIONS_POS]) > 10:
                             sort_list_final[i][config.TABLE_SUBMIT_APPLICATIONS_POS], x = self.normilise_time(sort_list_final[i][config.TABLE_SUBMIT_APPLICATIONS_POS])
                         if len(sort_list_final[i][config.TABLE_QUALIFYING_STAGE_POS]) > 10:
