@@ -389,9 +389,9 @@ class SingleTransaction:
                 self.events_of_current_transaction['НМЦ'] = lot_table_list[5][1]
                 self.events_of_current_transaction['Новые файлы'] = new_file
             else:
-                self.events_of_current_transaction['Подача заявок'] = lot_table_list[16][1]
-                self.events_of_current_transaction['Отборочная стадия'] = lot_table_list[17][1]
-                self.events_of_current_transaction['Оценочная стадия'] = lot_table_list[18][1]
+                self.events_of_current_transaction['Подача заявок'] = lot_table_list[15][1]
+                self.events_of_current_transaction['Отборочная стадия'] = lot_table_list[16][1]
+                self.events_of_current_transaction['Оценочная стадия'] = lot_table_list[17][1]
                 self.events_of_current_transaction['Наименование'] = lot_table_list[2][1]
                 self.events_of_current_transaction['НМЦ'] = lot_table_list[6][1]
                 self.events_of_current_transaction['Новые файлы'] = new_file
